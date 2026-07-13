@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# ML artifacts (regenerated, don't commit)
+data/
+models/
+mlruns/
+mlflow.db
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# env
+.env
