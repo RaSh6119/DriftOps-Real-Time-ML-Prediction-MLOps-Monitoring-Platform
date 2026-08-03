@@ -1,6 +1,10 @@
 import pandas as pd
+import os
 
-RAW_CSV_PATH = "data/raw/flight_raw.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # .../driftops/ml
+PROJECT_ROOT = os.path.dirname(BASE_DIR)                 # .../driftops
+
+RAW_CSV_PATH = os.path.join(PROJECT_ROOT, "data", "raw", "flight_raw.csv")  # adjust filename if yours differs
 
 COLUMNS_NEEDED = [
     "Year", "Month", "DayOfWeek", "FlightDate",
@@ -119,8 +123,8 @@ if __name__ == "__main__":
     print(f"Train shape: {train_df.shape}, Test shape: {test_df.shape}")
     print(f"Train delay rate: {train_df['is_delayed'].mean():.3f}, Test delay rate: {test_df['is_delayed'].mean():.3f}")
     print(train_df.head())
-    train_df.to_csv("data/train_processed.csv", index=False)
-    test_df.to_csv("data/test_processed.csv", index=False)
+    train_df.to_csv(os.path.join(PROJECT_ROOT, "data", "train_processed.csv"), index=False)
+    test_df.to_csv(os.path.join(PROJECT_ROOT, "data", "test_processed.csv"), index=False)
 
     # 1. NaN check on the new engineered columns — should all be 0
     new_cols = ["traffic_index", "weather_severity", "historical_demand", "driver_availability"]

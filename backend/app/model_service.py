@@ -4,17 +4,28 @@ import time
 import joblib
 import numpy as np
 import pandas as pd
+from datetime import datetime, timezone
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))       # backend/app
 PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))   # driftops root
 ML_DIR = os.path.join(PROJECT_ROOT, "ml")
 sys.path.insert(0, ML_DIR)  # reuse ml/features.py and ml/explain.py, don't duplicate logic
 
+from drift import compute_drift_report
+from retrain_pipeline import run_retraining
 from features import FEATURE_COLUMNS, get_output_feature_names
 from explain import explain_prediction
 
 MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "latest_model.joblib")
 _bundle = None
+
+def trigger_retrain() -> dict:
+    return run_retraining()
+
+def reload_bundle():
+    global _bundle
+    _bundle = None
 
 def load_bundle():
     global _bundle
@@ -51,30 +62,94 @@ def build_feature_row(request) -> pd.DataFrame:
         "historical_demand": historical_demand, "driver_availability": driver_availability,
     }])
 
+_prediction_log = []
+_MAX_LOG_SIZE = 1000
+
+def _log_prediction(elapsed_seconds, success):
+    _prediction_log.append({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "latency_ms": elapsed_seconds * 1000,
+        "success": success,
+    })
+    if len(_prediction_log) > _MAX_LOG_SIZE:
+        _prediction_log.pop(0)
 
 def predict(request) -> dict:
-    bundle = load_bundle()
-    row = build_feature_row(request)
-
     start = time.time()
-    X = bundle["preprocessor"].transform(row[FEATURE_COLUMNS])
-    proba = float(bundle["classifier"].predict_proba(X)[:, 1][0])
-    minutes = float(np.clip(bundle["regressor"].predict(X), 0, None)[0])
-    latency_ms = (time.time() - start) * 1000
+    try:
+        bundle = load_bundle()
+        row = build_feature_row(request)
+        X = bundle["preprocessor"].transform(row[FEATURE_COLUMNS])
+        proba = float(bundle["classifier"].predict_proba(X)[:, 1][0])
+        minutes = float(np.clip(bundle["regressor"].predict(X), 0, None)[0])
+        latency_ms = (time.time() - start) * 1000
 
-    distance_from_midpoint = abs(proba - 0.5)
-    confidence = "High" if distance_from_midpoint > 0.3 else "Medium" if distance_from_midpoint > 0.15 else "Low"
+        distance_from_midpoint = abs(proba - 0.5)
+        confidence = "High" if distance_from_midpoint > 0.3 else "Medium" if distance_from_midpoint > 0.15 else "Low"
+        top_features = explain_prediction(bundle["preprocessor"], bundle["classifier"], row, top_n=3)
+        version = bundle.get("version")
 
-    top_features = explain_prediction(bundle["preprocessor"], bundle["classifier"], row, top_n=3)
+        result = {
+            "delay_probability": round(proba, 4),
+            "predicted_delay_minutes": round(minutes, 1),
+            "confidence": confidence,
+            "top_features": top_features,
+            "model_version": str(version) if version is not None else None,
+            "latency_ms": round(latency_ms, 2),
+        }
+        _log_prediction(time.time() - start, success=True)
+        return result
+    except Exception:
+        _log_prediction(time.time() - start, success=False)
+        raise
+
+def get_model_info() -> dict:
+    bundle = load_bundle()
+    version = bundle.get("version")
+    return {
+        "version": str(version) if version is not None else None,
+        "trained_at": bundle.get("trained_at"),
+        "metrics": bundle.get("metrics", {}),
+    }
+
+def get_model_metrics() -> dict:
+    bundle = load_bundle()
+    total = len(_prediction_log)
+    successes = [p for p in _prediction_log if p["success"]]
+    avg_latency = sum(p["latency_ms"] for p in successes) / len(successes) if successes else 0.0
+    version = bundle.get("version")
 
     return {
-        "delay_probability": round(proba, 4),
-        "predicted_delay_minutes": round(minutes, 1),
-        "confidence": confidence,
-        "top_features": top_features,
-        "model_version": bundle.get("version"),
-        "latency_ms": round(latency_ms, 2),
+        "live_prediction_count": total,
+        "failed_predictions": total - len(successes),
+        "avg_latency_ms": round(avg_latency, 2),
+        "current_model_version": str(version) if version is not None else None,
+        "accuracy_history": _get_mlflow_version_history(),
     }
+
+
+def _get_mlflow_version_history():
+    import mlflow
+    mlflow.set_tracking_uri(f"sqlite:///{os.path.join(PROJECT_ROOT, 'mlflow.db')}")
+    client = mlflow.MlflowClient()
+    versions = client.search_model_versions("name='driftops-delay-model'")
+
+    history = []
+    for mv in sorted(versions, key=lambda v: int(v.version)):
+        run = client.get_run(mv.run_id)
+        history.append({
+            "version": str(mv.version),
+            "trained_at": datetime.fromtimestamp(run.info.start_time / 1000, tz=timezone.utc).isoformat(),
+            "accuracy": run.data.metrics.get("accuracy"),
+            "roc_auc": run.data.metrics.get("roc_auc"),
+            "f1": run.data.metrics.get("f1"),
+        })
+    return history
+
+def get_drift_report() -> dict:
+    reference_df = pd.read_csv(os.path.join(PROJECT_ROOT, "data", "train_processed.csv"))
+    current_df = pd.read_csv(os.path.join(PROJECT_ROOT, "data", "test_processed.csv"))
+    return compute_drift_report(reference_df, current_df)
 
 if __name__ == "__main__":
     import shap
