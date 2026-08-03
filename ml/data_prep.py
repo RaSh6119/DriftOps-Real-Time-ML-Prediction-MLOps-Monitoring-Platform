@@ -46,11 +46,7 @@ def _smoothed_group_stat(train_df, group_cols, value_series, k=20):
     agg["smoothed"] = (agg["count"] * agg["mean"] + k * global_mean) / (agg["count"] + k)
     return agg[group_cols + ["smoothed"]], global_mean
 
-
-def add_aggregate_features(train_df: pd.DataFrame, test_df: pd.DataFrame, k: int = 20):
-    train_df = train_df.copy()
-    test_df = test_df.copy()
-
+def build_feature_lookups(train_df: pd.DataFrame, k: int = 20):
     clipped_dep_delay = train_df["DepDelay"].clip(upper=180)
     traffic_lookup, traffic_global = _smoothed_group_stat(train_df, ["Origin", "hour_of_day"], clipped_dep_delay, k)
     traffic_lookup = traffic_lookup.rename(columns={"smoothed": "traffic_index"})
@@ -69,32 +65,43 @@ def add_aggregate_features(train_df: pd.DataFrame, test_df: pd.DataFrame, k: int
     )
     carrier_global = carrier_reliability["driver_availability"].mean()
 
+    return {
+        "traffic_lookup": traffic_lookup, "traffic_global": traffic_global,
+        "weather_lookup": weather_lookup, "weather_global": weather_global,
+        "demand_lookup": demand, "demand_global": demand_global,
+        "carrier_lookup": carrier_reliability, "carrier_global": carrier_global,
+    }
+
+def add_aggregate_features(train_df, test_df, k=20):
+    lookups = build_feature_lookups(train_df, k)
+    train_df, test_df = train_df.copy(), test_df.copy()
+
     for df in (train_df, test_df):
         df.drop(columns=["traffic_index", "weather_severity", "historical_demand", "driver_availability"],
                  errors="ignore", inplace=True)
 
-    train_df = train_df.merge(traffic_lookup, on=["Origin", "hour_of_day"], how="left")
-    train_df = train_df.merge(weather_lookup, on=["Origin", "Month"], how="left")
-    train_df = train_df.merge(demand, on=["Origin", "hour_of_day"], how="left")
-    train_df = train_df.merge(carrier_reliability, on="Reporting_Airline", how="left")
+    for split_name, df in (("train", train_df), ("test", test_df)):
+        pass
 
-    test_df = test_df.merge(traffic_lookup, on=["Origin", "hour_of_day"], how="left")
-    test_df = test_df.merge(weather_lookup, on=["Origin", "Month"], how="left")
-    test_df = test_df.merge(demand, on=["Origin", "hour_of_day"], how="left")
-    test_df = test_df.merge(carrier_reliability, on="Reporting_Airline", how="left")
+    train_df = train_df.merge(lookups["traffic_lookup"], on=["Origin", "hour_of_day"], how="left")
+    train_df = train_df.merge(lookups["weather_lookup"], on=["Origin", "Month"], how="left")
+    train_df = train_df.merge(lookups["demand_lookup"], on=["Origin", "hour_of_day"], how="left")
+    train_df = train_df.merge(lookups["carrier_lookup"], on="Reporting_Airline", how="left")
+
+    test_df = test_df.merge(lookups["traffic_lookup"], on=["Origin", "hour_of_day"], how="left")
+    test_df = test_df.merge(lookups["weather_lookup"], on=["Origin", "Month"], how="left")
+    test_df = test_df.merge(lookups["demand_lookup"], on=["Origin", "hour_of_day"], how="left")
+    test_df = test_df.merge(lookups["carrier_lookup"], on="Reporting_Airline", how="left")
 
     fallbacks = {
-        "traffic_index": traffic_global,
-        "weather_severity": weather_global,
-        "historical_demand": demand_global,
-        "driver_availability": carrier_global,
+        "traffic_index": lookups["traffic_global"], "weather_severity": lookups["weather_global"],
+        "historical_demand": lookups["demand_global"], "driver_availability": lookups["carrier_global"],
     }
     for col, fallback in fallbacks.items():
         train_df[col] = train_df[col].fillna(fallback)
         test_df[col] = test_df[col].fillna(fallback)
 
-    return train_df, test_df
-
+    return train_df, test_df, lookups
 
 def add_targets(df: pd.DataFrame, delay_cap_minutes: int = 240) -> pd.DataFrame:
     df = df.copy()
@@ -105,7 +112,7 @@ def add_targets(df: pd.DataFrame, delay_cap_minutes: int = 240) -> pd.DataFrame:
 if __name__ == "__main__":
     df = load_and_clean()
     train_df, test_df = split_by_date(df)
-    train_df, test_df = add_aggregate_features(train_df, test_df)
+    train_df, test_df, lookups = add_aggregate_features(train_df, test_df)
     train_df = add_targets(train_df)
     test_df = add_targets(test_df)
     # print(pd.read_csv(RAW_CSV_PATH, nrows=0).columns.tolist())
