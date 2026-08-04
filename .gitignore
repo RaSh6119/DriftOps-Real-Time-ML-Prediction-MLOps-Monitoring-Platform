@@ -3,11 +3,16 @@
 __pycache__/
 *.pyc
 
-# ML artifacts (regenerated, don't commit)
-data/
-models/
+# ML artifacts — mostly regenerated locally, but a trained sample is
+# committed intentionally so the live deployment has something to serve
+# and reviewers can explore without running the full pipeline first.
+data/raw/
+data/*.csv
+!data/train_processed.csv
+!data/test_processed.csv
+models/*
+!models/latest_model.joblib
 mlruns/
-mlflow.db
 
 # Node / frontend
 frontend/node_modules/
