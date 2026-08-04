@@ -1,4 +1,5 @@
 import os
+import urllib.request
 
 import pandas as pd
 
@@ -6,6 +7,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # .../driftops/ml
 PROJECT_ROOT = os.path.dirname(BASE_DIR)                 # .../driftops
 
 RAW_CSV_PATH = os.path.join(PROJECT_ROOT, "data", "raw", "flight_raw.csv")  # adjust filename if yours differs
+RAW_DATA_URL = os.environ.get("RAW_DATA_URL")
 
 COLUMNS_NEEDED = [
     "Year", "Month", "DayOfWeek", "FlightDate",
@@ -15,7 +17,21 @@ COLUMNS_NEEDED = [
 ]
 
 
+def _ensure_raw_data(path: str) -> str:
+    """Download the raw BTS CSV if it isn't present locally (e.g. fresh Render deploy)."""
+    if os.path.exists(path):
+        return path
+    if not RAW_DATA_URL:
+        raise FileNotFoundError(
+            f"{path} not found and RAW_DATA_URL is not set — cannot fetch raw data."
+        )
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    urllib.request.urlretrieve(RAW_DATA_URL, path)
+    return path
+
+
 def load_and_clean(path: str = RAW_CSV_PATH) -> pd.DataFrame:
+    path = _ensure_raw_data(path)
     df = pd.read_csv(path, usecols=COLUMNS_NEEDED)
     df.columns = [c.strip() for c in df.columns]
 
