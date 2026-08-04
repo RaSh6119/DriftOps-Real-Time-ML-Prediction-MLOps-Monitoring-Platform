@@ -16,12 +16,15 @@ from schemas import (
     PredictionResponse,
     RetrainResponse,
 )
+import os
+
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 
 app = FastAPI(title="DriftOps API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server default port
+    allow_origins=ALLOWED_ORIGINS,  # Vite dev server default port
     allow_methods=["*"],
     allow_headers=["*"],
 )
