@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from model_service import (
@@ -16,7 +17,6 @@ from schemas import (
     PredictionResponse,
     RetrainResponse,
 )
-import os
 
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 
