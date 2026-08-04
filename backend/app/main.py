@@ -57,7 +57,10 @@ def drift_report_endpoint():
 
 @app.post("/retrain", response_model=RetrainResponse)
 def retrain_endpoint():
-    result = trigger_retrain()
+    try:
+        result = trigger_retrain()
+    except Exception as e:  # noqa: BLE001 -- surface a clear error instead of crashing uninformatively
+        raise HTTPException(status_code=500, detail=f"Retrain failed: {e}")
     if result["decision"] == "promoted":
-        reload_bundle()  # force next predict() to pick up the newly promoted model
+        reload_bundle()
     return result
