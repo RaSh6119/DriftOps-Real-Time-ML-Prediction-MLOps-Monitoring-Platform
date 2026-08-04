@@ -10,7 +10,6 @@ COPY ml ./ml
 COPY models ./models
 COPY data ./data
 COPY mlflow.db ./mlflow.db
-COPY mlruns ./mlruns
 
 WORKDIR /app/backend/app
 EXPOSE 8000
