@@ -1,8 +1,21 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
-from schemas import PredictionRequest, PredictionResponse, ModelInfoResponse, ModelMetricsResponse, DriftReportResponse, RetrainResponse
-from model_service import predict as predict_service, get_model_info, get_model_metrics, get_drift_report, trigger_retrain, reload_bundle
+from model_service import (
+    get_drift_report,
+    get_model_info,
+    get_model_metrics,
+    reload_bundle,
+    trigger_retrain,
+)
+from model_service import predict as predict_service
+from schemas import (
+    DriftReportResponse,
+    ModelInfoResponse,
+    ModelMetricsResponse,
+    PredictionRequest,
+    PredictionResponse,
+    RetrainResponse,
+)
 
 app = FastAPI(title="DriftOps API", version="0.1.0")
 
@@ -23,7 +36,7 @@ def health():
 def predict_endpoint(request: PredictionRequest):
     try:
         return predict_service(request)
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 -- deliberately broad: any model failure should become a 500
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/model-info", response_model=ModelInfoResponse)

@@ -1,11 +1,11 @@
 import os
 import sys
 import time
+from datetime import datetime, timezone
+
 import joblib
 import numpy as np
 import pandas as pd
-from datetime import datetime, timezone
-
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))       # backend/app
 PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))   # driftops root
@@ -13,9 +13,9 @@ ML_DIR = os.path.join(PROJECT_ROOT, "ml")
 sys.path.insert(0, ML_DIR)  # reuse ml/features.py and ml/explain.py, don't duplicate logic
 
 from drift import compute_drift_report
-from retrain_pipeline import run_retraining
-from features import FEATURE_COLUMNS, get_output_feature_names
 from explain import explain_prediction
+from features import FEATURE_COLUMNS
+from retrain_pipeline import run_retraining
 
 MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "latest_model.joblib")
 _bundle = None
@@ -152,10 +152,7 @@ def get_drift_report() -> dict:
     return compute_drift_report(reference_df, current_df)
 
 if __name__ == "__main__":
-    import shap
     from schemas import PredictionRequest
-    from features import get_output_feature_names
-    from explain import _source_column
 
     req = PredictionRequest(origin="ATL", destination="ORD", carrier="DL",
                              distance_miles=606, scheduled_hour=17, day_of_week=5, month=3)

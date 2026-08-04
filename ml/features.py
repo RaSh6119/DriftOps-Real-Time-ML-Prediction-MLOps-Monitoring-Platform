@@ -31,7 +31,12 @@ def get_output_feature_names(preprocessor: ColumnTransformer) -> list:
     return cat_names + NUMERIC_COLUMNS
 
 if __name__ == "__main__":
-    from data_prep import load_and_clean, split_by_date, add_aggregate_features, add_targets
+    from data_prep import (
+        add_aggregate_features,
+        add_targets,
+        load_and_clean,
+        split_by_date,
+    )
 
     df = load_and_clean()
     train_df, test_df = split_by_date(df)

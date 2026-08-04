@@ -1,8 +1,8 @@
 import os
+
 import numpy as np
 import pandas as pd
-
-from features import FEATURE_COLUMNS, CATEGORICAL_COLUMNS, NUMERIC_COLUMNS
+from features import CATEGORICAL_COLUMNS, FEATURE_COLUMNS, NUMERIC_COLUMNS
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
@@ -99,5 +99,5 @@ if __name__ == "__main__":
     try:
         generate_html_report(reference_df, current_df, os.path.join(PROJECT_ROOT, "data", "drift_report.html"))
         print("HTML report saved to data/drift_report.html")
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 -- HTML report is optional/best-effort, must not break the core drift summary
         print(f"Evidently HTML generation failed (non-fatal, core JSON summary above is unaffected): {e}")

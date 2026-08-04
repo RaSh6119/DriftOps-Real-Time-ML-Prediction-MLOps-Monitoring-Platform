@@ -1,5 +1,6 @@
-import pandas as pd
 import os
+
+import pandas as pd
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # .../driftops/ml
 PROJECT_ROOT = os.path.dirname(BASE_DIR)                 # .../driftops

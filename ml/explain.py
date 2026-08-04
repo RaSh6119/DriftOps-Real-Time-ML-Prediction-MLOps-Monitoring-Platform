@@ -1,7 +1,8 @@
+import os
+
 import numpy as np
 import shap
-import os
-from features import FEATURE_COLUMNS, get_output_feature_names, CATEGORICAL_COLUMNS
+from features import CATEGORICAL_COLUMNS, FEATURE_COLUMNS, get_output_feature_names
 
 FRIENDLY_NAMES = {
     "Distance": "Trip distance",

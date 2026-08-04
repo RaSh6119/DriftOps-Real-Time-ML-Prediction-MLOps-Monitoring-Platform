@@ -1,15 +1,28 @@
 import os
+from datetime import datetime, timezone
+
 import joblib
 import mlflow
 import mlflow.pyfunc
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score, f1_score, mean_absolute_error, roc_auc_score, precision_score, recall_score
+from data_prep import add_aggregate_features, add_targets, load_and_clean, split_by_date
+from features import (
+    CLASSIFICATION_TARGET,
+    FEATURE_COLUMNS,
+    REGRESSION_TARGET,
+    build_preprocessor,
+    get_output_feature_names,
+)
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    mean_absolute_error,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from xgboost import XGBClassifier, XGBRegressor
-from datetime import datetime, timezone
-
-from data_prep import load_and_clean, split_by_date, add_aggregate_features, add_targets
-from features import FEATURE_COLUMNS, CLASSIFICATION_TARGET, REGRESSION_TARGET, build_preprocessor, get_output_feature_names
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # .../driftops/ml
 PROJECT_ROOT = os.path.dirname(BASE_DIR)                # .../driftops
@@ -47,8 +60,15 @@ def train_and_log(run_name="training-run", register=True, promote=True):
 
     neg = (train_df[CLASSIFICATION_TARGET] == 0).sum()
     pos = (train_df[CLASSIFICATION_TARGET] == 1).sum()
-    params = dict(n_estimators=250, max_depth=6, learning_rate=0.08, subsample=0.9,
-                  colsample_bytree=0.9, random_state=42, scale_pos_weight=neg / pos)
+    params = {
+        "n_estimators": 250,
+        "max_depth": 6,
+        "learning_rate": 0.08,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "random_state": 42,
+        "scale_pos_weight": neg / pos,
+    }
 
     clf = XGBClassifier(**params, eval_metric="logloss")
     clf.fit(X_train, train_df[CLASSIFICATION_TARGET])

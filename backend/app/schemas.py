@@ -1,5 +1,6 @@
+
 from pydantic import BaseModel, Field
-from typing import List
+
 
 class PredictionRequest(BaseModel):
     origin: str = Field(..., description="Origin airport IATA code, e.g. ATL")
@@ -20,7 +21,7 @@ class PredictionResponse(BaseModel):
     delay_probability: float
     predicted_delay_minutes: float
     confidence: str
-    top_features: List[FeatureContribution]
+    top_features: list[FeatureContribution]
     model_version: str | None
     latency_ms: float
 
@@ -41,7 +42,7 @@ class ModelMetricsResponse(BaseModel):
     failed_predictions: int
     avg_latency_ms: float
     current_model_version: str | None
-    accuracy_history: List[VersionMetrics]
+    accuracy_history: list[VersionMetrics]
 
 class FeatureDrift(BaseModel):
     psi: float
@@ -53,7 +54,7 @@ class DriftReportResponse(BaseModel):
     drift_detected: bool
     severity: str
     overall_psi: float
-    drifted_features: List[str]
+    drifted_features: list[str]
     per_feature: dict[str, FeatureDrift]
     recommendation: str
 

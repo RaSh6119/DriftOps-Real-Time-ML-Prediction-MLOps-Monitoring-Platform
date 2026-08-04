@@ -1,7 +1,7 @@
 import json
-import mlflow
 
-from train import train_and_log, REGISTERED_MODEL_NAME, PRODUCTION_ALIAS, MLFLOW_DB_PATH
+import mlflow
+from train import MLFLOW_DB_PATH, PRODUCTION_ALIAS, REGISTERED_MODEL_NAME, train_and_log
 
 
 def _get_current_production_metrics():
@@ -9,7 +9,7 @@ def _get_current_production_metrics():
     client = mlflow.MlflowClient()
     try:
         current = client.get_model_version_by_alias(REGISTERED_MODEL_NAME, PRODUCTION_ALIAS)
-    except Exception:
+    except Exception: # noqa: BLE001 -- no production model registered yet is a valid, expected state
         return None
     run = client.get_run(current.run_id)
     return {"version": str(current.version), "roc_auc": run.data.metrics.get("roc_auc")}
